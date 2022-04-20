@@ -1,6 +1,7 @@
 ## `behavior` is one of the flags described below.
 ## `data` is target speed for local planner to track if the behavior = {0, 3}.
 ## `data` is distance ahead for maneuver to be executed by local planner if the behavior = {1, 2, 4, 5}.
+time time
 uint8 behavior
 float32 data
 

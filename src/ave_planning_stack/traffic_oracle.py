@@ -1,8 +1,8 @@
 import carla
 import math
+import numpy as np
 import rospy
 
-from carla_ad_agent.misc import is_within_distance_ahead
 from carla_common import transforms as trans
 from carla_msgs.msg import (
     CarlaTrafficLightInfoList,
@@ -36,8 +36,9 @@ class TrafficOracle:
         self._carla_map = self._carla_world.get_map()
 
         ## parameters for hazard detection
-        self._proximity_tlight_threshold =  10.0  # meters
-        self._proximity_vehicle_threshold = 12.0  # meters
+        self._stopping_distance_from_tlight =  5.0  # meters
+        self._proximity_tlight_threshold    = 11.0  # meters
+        self._proximity_vehicle_threshold   = 12.0  # meters
 
         ## variables for subscriber callbacks
         self.objects = None
@@ -60,7 +61,7 @@ class TrafficOracle:
         self._traffic_light_status_subscriber = rospy.Subscriber(
             "/carla/traffic_lights/status",
             CarlaTrafficLightStatusList,
-            self._traffic_light_status_subscriber
+            self._traffic_light_status_callback
         )
     
 
@@ -127,13 +128,9 @@ class TrafficOracle:
         """
         ego_vehicle_location = trans.ros_point_to_carla_location(ego_vehicle_pose.position)
         ego_vehicle_waypoint = self._carla_map.get_waypoint(ego_vehicle_location)
-        ego_vehicle_transform = trans.ros_pose_to_carla_transform(ego_vehicle_pose)
+        nearest_obstacle = float("inf")
 
         for target_vehicle_id, target_vehicle_object in objects.items():
-            target_vehicle_location = trans.ros_point_to_carla_location(target_vehicle_object.pose.position)
-            target_vehicle_waypoint = self._carla_map.get_waypoint(target_vehicle_location)
-            target_vehicle_transform = trans.ros_pose_to_carla_transform(target_vehicle_object.pose)
-
             ## take into account only vehicles
             if target_vehicle_object.classification not in self.OBJECT_VEHICLE_CLASSIFICATION:
                 continue
@@ -142,22 +139,34 @@ class TrafficOracle:
             if target_vehicle_id == self.ego_vehicle_id:
                 continue
 
+            ## get the target vehicle waypoint and the location of target relative to ego
+            target_vehicle_location = trans.ros_point_to_carla_location(target_vehicle_object.pose.position)
+            target_vehicle_waypoint = self._carla_map.get_waypoint(target_vehicle_location)
+            target_wrt_ego = np.array([target_vehicle_location.x - ego_vehicle_location.x,
+                                       target_vehicle_location.y - ego_vehicle_location.y])
+
             ## can't locate object in the map
             if target_vehicle_waypoint is None:
                 continue
 
             ## if the object is not in our lane it's not an obstacle
             if target_vehicle_waypoint.road_id != ego_vehicle_waypoint.road_id or \
-                    target_vehicle_waypoint.lane_id != ego_vehicle_waypoint.lane_id:
+               target_vehicle_waypoint.lane_id != ego_vehicle_waypoint.lane_id:
                 continue
 
-            ## check the distance whether it is in out threshold
-            if is_within_distance_ahead(target_vehicle_transform,
-                                        ego_vehicle_transform,
-                                        self._proximity_vehicle_threshold):
-                return (True, target_vehicle_id)
+            ## if the object is behind us, ignore it
+            if target_wrt_ego[0] < 0. or target_wrt_ego[1] < 0.:
+                continue
 
-        return (False, None)
+            ## if it is below distance threshold and the nearest so far, save the velocity
+            distance = np.linalg.norm(target_wrt_ego)
+            if distance < self._proximity_vehicle_threshold and distance < nearest_obstacle:
+                nearest_obstacle = distance
+                obstacle_velocity = np.linalg.norm([target_vehicle_object.twist.linear.x,
+                                                    target_vehicle_object.twist.linear.y])
+        
+        if nearest_obstacle != float("inf"): return (True, obstacle_velocity)
+        else: return (False, None)
 
 
     def is_red_light(self, ego_vehicle_pose, lights_status, lights_info):
@@ -182,12 +191,12 @@ class TrafficOracle:
         """
         ego_vehicle_location = trans.ros_point_to_carla_location(ego_vehicle_pose.position)
         ego_vehicle_waypoint = self._carla_map.get_waypoint(ego_vehicle_location)
-        ego_vehicle_transform = trans.ros_pose_to_carla_transform(ego_vehicle_pose)
+        ego_vehicle_transform = ego_vehicle_waypoint.transform
 
         for light_id in lights_status.keys():
             object_location = self._get_trafficlight_trigger_location(lights_info[light_id])
             object_waypoint = self._carla_map.get_waypoint(object_location)
-            object_transform = trans.ros_pose_to_carla_transform(object_waypoint.pose)
+            object_transform = object_waypoint.transform
 
             ## can't locate the object in the map
             if object_waypoint is None:
@@ -205,12 +214,20 @@ class TrafficOracle:
             dot_ve_wp = ve_dir.x * wp_dir.x + ve_dir.y * wp_dir.y + ve_dir.z * wp_dir.z
             if dot_ve_wp < 0: continue
 
-            ## if it is in certain distance, then check the light
-            if is_within_distance_ahead(object_transform,
-                                        ego_vehicle_transform,
-                                        self._proximity_tlight_threshold):
+            ## if it is below distance threshold, then check the light
+            distance = np.array([object_location.x - ego_vehicle_location.x,
+                                 object_location.y - ego_vehicle_location.y])
+            distance = np.linalg.norm(distance)
+            if distance < self._proximity_tlight_threshold:
+
+                ## if it is yellow or red, then stop the car at stopping distance
                 if lights_status[light_id].state == CarlaTrafficLightStatus.RED or \
-                    lights_status[light_id].state == CarlaTrafficLightStatus.YELLOW:
-                    return (True, light_id)
+                   lights_status[light_id].state == CarlaTrafficLightStatus.YELLOW:
+                   
+                   ## if stopping distance is positive, then set it to its value
+                   ## otherwise stopping distance is set to 0 (stop immediately)
+                   stopping_distance = distance - self._stopping_distance_from_tlight
+                   stopping_distance = stopping_distance if stopping_distance else 0.
+                   return (True, stopping_distance)
 
         return (False, None)
