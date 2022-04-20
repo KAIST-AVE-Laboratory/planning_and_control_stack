@@ -6,24 +6,18 @@ import numpy as np
 import scipy.spatial.distance as scipydist
 
 
-class LaneChange(Enum):
-    """Enumerator to identify lane change availability."""
-    NONE = 0
-    RIGHT = 1
-    LEFT = 2
-    BOTH = 3
-    UNDETERMINED = 4
-
-
-class LaneType(Enum):
-    """"""
-    STRAIGHT = 1
-    CURVE = 2
-    UNDETERMINED = 3
-
-
 class GraphMap:
     """Directed graph representation of the map."""
+
+
+    class LaneChange(Enum):
+        """Enumerator to identify lane change availability."""
+        NONE = 0
+        RIGHT = 1
+        LEFT = 2
+        BOTH = 3
+        UNDETERMINED = 4
+
 
     def __init__(self, graph: nx.DiGraph) -> None:
         """Constructor.
