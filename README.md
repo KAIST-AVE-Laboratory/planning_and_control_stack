@@ -1,0 +1,2 @@
+## Planning and Control Stack for Autonomous Vehicle
+We put planning and control stack together in one package because they are tightly coupled. The boundary between planning and control depends on the type of algorithms used.
