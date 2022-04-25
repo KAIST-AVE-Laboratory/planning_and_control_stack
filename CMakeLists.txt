@@ -51,6 +51,7 @@ catkin_python_setup()
 add_message_files(
   FILES
   Behavior.msg
+  Obstacles.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -161,8 +162,9 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  src/global_planner_node.py
   src/behavioral_agent_node.py
+  src/global_planner_node.py
+  src/local_planner_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
