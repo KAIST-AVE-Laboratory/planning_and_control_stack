@@ -1,0 +1,28 @@
+<launch>
+  <!-- local planner parameter -->
+  <arg name="kp_lateral" default="0.9"/>
+  <arg name="ki_lateral" default="0.0"/>
+  <arg name="kd_lateral" default="0.0"/>
+  <arg name="kp_longitudinal" default="0.2060"/>
+  <arg name="ki_longitudinal" default="0.0206"/>
+  <arg name="kd_longitudinal" default="0.5150"/>
+
+  <!-- Local planner that includes the controller. -->
+  <node pkg="planning_and_control_stack" name="local_planner_node" type="local_planner_node.py" output="screen">
+    <param name="kp_lateral" value="$(arg kp_lateral)"/>
+    <param name="ki_lateral" value="$(arg ki_lateral)"/>
+    <param name="kd_lateral" value="$(arg kd_lateral)"/>
+    <param name="kp_longitudinal" value="$(arg kp_longitudinal)"/>
+    <param name="ki_longitudinal" value="$(arg ki_longitudinal)"/>
+    <param name="kd_longitudinal" value="$(arg kd_longitudinal)"/>
+  </node>
+  
+  <!-- Global planner node that publish the global waypoints. -->
+  <node pkg="planning_and_control_stack" name="global_planner_node" type="global_planner_node.py" output="screen">
+  </node>
+
+  <!-- Behavior agent node that publish what to do. -->
+  <node pkg="planning_and_control_stack" name="behavioral_agent_node" type="behavioral_agent_node.py" output="screen">
+  </node>
+
+</launch>
