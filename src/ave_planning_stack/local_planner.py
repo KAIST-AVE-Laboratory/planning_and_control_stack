@@ -19,7 +19,7 @@ class LocalPlanner:
     def __init__(self,
         role_name: str,
         # control_timestep: float,
-        # nominal_speed: float,
+        nominal_speed: float,
         wp_closeness: float,
         wp_distance_threshold: float,
         # planning_lookahed_distance: float,
@@ -42,7 +42,7 @@ class LocalPlanner:
 
         self.role_name = role_name
         # self.control_timestep = control_timestep
-        # self.nominal_speed = nominal_speed
+        self.nominal_speed = nominal_speed
         self.wp_closeness = wp_closeness
         self.wp_distance_threshold = wp_distance_threshold
         # self.planning_lookahed_distance = planning_lookahed_distance
@@ -143,7 +143,7 @@ class LocalPlanner:
             distance = 0
         
         rospy.loginfo("Receiving %d waypoints separated at least %.3f m with a total length of %.3f m."
-            % (len(xs), self.wp_distance_threshold, sum(ds)))
+            % (len(xs), self.wp_distance_threshold, ds[-1]))
 
         ## fit cubic spline for this waypoints
         self.x_spline = interp.CubicSpline(ds, xs, bc_type=((1, self.ego_vehicle_speed), (1, 0.)))
@@ -210,10 +210,11 @@ class LocalPlanner:
         s = closest_idx * self.wp_closeness
 
         ## get the (x, y, yaw_road[ie. road_direction]) of the closest s
+        ## first derivative is ill-defined at the boundary (start point of the spline)
         x  = self.x_spline(s, 0)
         y  = self.y_spline(s, 0)
-        dx = self.x_spline(s, 1)
-        dy = self.y_spline(s, 1)
+        dx = self.x_spline(s + 1e-6, 1)
+        dy = self.y_spline(s + 1e-6, 1)
         yaw_road = math.atan2(dy, dx)
 
         ## get the frenet frame basis vector in world frame rooted at closest s with ego
@@ -241,8 +242,9 @@ class LocalPlanner:
         v = np.linalg.norm([s_dot, d_dot])
 
         ## get yaw of the road
-        dx = self.x_spline(s, 1)
-        dy = self.y_spline(s, 1)
+        ## first derivative is ill-defined at the boundary (start point of the spline)
+        dx = self.x_spline(s + 1e-6, 1)
+        dy = self.y_spline(s + 1e-6, 1)
         yaw_road = math.atan2(dy, dx)
 
         ## get the (x, y)
@@ -272,17 +274,16 @@ class LocalPlanner:
 
         ## ------------------- NOMINAL -------------------
 
-        elif self.behavior == Behavior.NOMINAL or self.behavior == Behavior.RED_LIGHT_STOP:
+        elif self.behavior == Behavior.NOMINAL:
             s, s_dot, d, d_dot = self.world2frenet(self.ego_vehicle_pose, self.ego_vehicle_speed)
 
             ## for now assume that ego moves at constant speed
-            ## and the leading vehicle moves at constant 5m/s
             c_d = (d, d_dot, 0.)
             c_s = (s, s_dot, 0.)
-            t_s = (20., 0.)
+            t_s = (self.nominal_speed, 0.)
 
             ## generate the possible paths in frenet frame
-            param = (c_d, c_s, t_s, self.ds, self.n_ds)
+            param = (c_d, c_s, t_s, self.ds_dot, self.n_ds_dot)
             paths = self.planner.velocity_tracking(*param)
 
             ## sort the paths based on cost
@@ -313,13 +314,13 @@ class LocalPlanner:
             s, s_dot, d, d_dot = self.world2frenet(self.ego_vehicle_pose, self.ego_vehicle_speed)
 
             ## for now assume that ego moves at constant speed
-            ## and the leading vehicle moves at constant 5m/s
             c_d = (d, d_dot, 0.)
             c_s = (s, s_dot, 0.)
-            t_s = (self.behavior_data, 5., 0.)
+            t_s = (self.behavior_data, 0., 0.)
 
             ## generate the possible paths in frenet frame
-            param = (c_d, c_s, t_s, self.ds, self.n_ds, self.d0, self.tw)
+            ## d0 and tw is 0 because we dont want to maintain time-gap as in the car folowing mode
+            param = (c_d, c_s, t_s, self.ds, self.n_ds, 0., 0.)
             paths = self.planner.plan_distance_keeping(*param)
 
             ## sort the paths based on cost

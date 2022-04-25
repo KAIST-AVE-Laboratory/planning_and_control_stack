@@ -11,9 +11,9 @@ if __name__ == "__main__":
         ## rosparam: General
         role_name = rospy.get_param("~/role_name", "ego_vehicle")
         # control_timestep = rospy.get_param("~/control_timestep", 0.05)
-        # nominal_speed = rospy.get_param("~/nominal_speed", 20.)
-        waypoint_closeness = rospy.get_param("~/waypoint_closeness", 0.5)
-        waypoint_distance_threshold = rospy.get_param("~/waypoint_distance_threshold", 2)
+        nominal_speed = rospy.get_param("~/nominal_speed", 20.)
+        waypoint_closeness = rospy.get_param("~/waypoint_closeness", 1)
+        waypoint_distance_threshold = rospy.get_param("~/waypoint_distance_threshold", 5)
         # planning_lookahed_distance = rospy.get_param("~/planning_lookahed_distance", 10)
 
         ## rosparam: PID Controller
@@ -26,10 +26,10 @@ if __name__ == "__main__":
         kd_longitudinal = rospy.get_param("~/kd_longitudinal", 0.515)
 
         ## rosparam: Frenet Planner
-        frenet_dt   = rospy.get_param("~/frenet_dt", 0.1)
-        frenet_n_dt = rospy.get_param("~/frenet_n_dt", 1)
-        frenet_dd   = rospy.get_param("~/frenet_dd", 2.0)
-        frenet_n_dd = rospy.get_param("~/frenet_n_dd", 1)
+        frenet_dt   = rospy.get_param("~/frenet_dt", 0.2)
+        frenet_n_dt = rospy.get_param("~/frenet_n_dt", 0)
+        frenet_dd   = rospy.get_param("~/frenet_dd", 1.0)
+        frenet_n_dd = rospy.get_param("~/frenet_n_dd", 6)
         frenet_kj   = rospy.get_param("~/frenet_kj", 1.0)
         frenet_kt   = rospy.get_param("~/frenet_kt", 1.0)
         frenet_kd   = rospy.get_param("~/frenet_kd", 1.0)
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         local_planner = LocalPlanner(
             role_name,
             # control_timestep,
-            # nominal_speed,
+            nominal_speed,
             waypoint_closeness,
             waypoint_distance_threshold,
             # planning_lookahead_distance
