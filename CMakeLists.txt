@@ -165,6 +165,8 @@ catkin_install_python(PROGRAMS
   src/behavioral_agent_node.py
   src/global_planner_node.py
   src/local_planner_node.py
+  src/local_planner_demo_node.py
+  src/visualization_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

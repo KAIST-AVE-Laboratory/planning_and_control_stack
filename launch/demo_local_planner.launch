@@ -10,7 +10,7 @@
 
   <!-- spectator camera parameter -->
   <arg name="role_name" default="ego_vehicle"/> <!-- role name of the ego vehicle (used for identification in many nodes) -->
-  <arg name='spawn_point' default='122.4,-195.4,2,0,0,180'/> <!-- fixed spawn point, set to "" for a random spawn point -->
+  <arg name='spawn_point' default='150.4,-195.4,2,0,0,180'/> <!-- fixed spawn point, set to "" for a random spawn point -->
 
   <!-- The ros bridge -->
   <include file="$(find carla_ros_bridge)/launch/carla_ros_bridge.launch">
@@ -35,5 +35,46 @@
   <include file="$(find carla_manual_control)/launch/carla_manual_control.launch">
     <arg name='role_name' value='$(arg role_name)'/>
   </include>
+  
+  <!-- local planner parameter -->
+  <arg name="kp_lateral" default="0.9"/>
+  <arg name="ki_lateral" default="0.0"/>
+  <arg name="kd_lateral" default="0.0"/>
+  <arg name="kp_longitudinal" default="0.2060"/>
+  <arg name="ki_longitudinal" default="0.0206"/>
+  <arg name="kd_longitudinal" default="0.5150"/>
+
+  <!-- Local planner that includes the controller. -->
+  <node pkg="planning_and_control_stack" name="local_planner_node" type="local_planner_demo_node.py" output="screen">
+    <param name="kp_lateral" value="$(arg kp_lateral)"/>
+    <param name="ki_lateral" value="$(arg ki_lateral)"/>
+    <param name="kd_lateral" value="$(arg kd_lateral)"/>
+    <param name="kp_longitudinal" value="$(arg kp_longitudinal)"/>
+    <param name="ki_longitudinal" value="$(arg ki_longitudinal)"/>
+    <param name="kd_longitudinal" value="$(arg kd_longitudinal)"/>
+  </node>
+  
+  <!-- Global planner node that publish the global waypoints. -->
+  <node pkg="planning_and_control_stack" name="global_planner_node" type="global_planner_node.py" output="screen">
+  </node>
+
+  <!-- Behavior agent node that publish what to do. -->
+  <node pkg="planning_and_control_stack" name="behavioral_agent_node" type="behavioral_agent_node.py" output="screen">
+  </node>
+
+    <!-- Visualization node that publish the bev image. -->
+  <node pkg="planning_and_control_stack" name="visualization_node" type="visualization_node.py" output="screen">
+    <param name="role_name" value="$(arg role_name)"/>
+    <param name="map_name" value="$(arg town)"/>
+    <param name="map_path" value="$(find planning_and_control_stack)"/>
+    <param name="bev_height" value="600"/>
+    <param name="bev_width" value="300"/>
+    <param name="hdmap_px_per_meter" value="20"/>
+    <param name="bev_px_per_meter" value="5"/>
+    <param name="wheel_name" value="G29 Racing Wheel"/>
+    <param name="kp" value="2.0"/>
+    <param name="ki" value="0.0"/>
+    <param name="kd" value="1.5"/>
+  </node>
 
 </launch>
